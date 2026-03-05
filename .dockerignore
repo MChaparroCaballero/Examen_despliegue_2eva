@@ -1,0 +1,44 @@
+# Entornos virtuales (Muy importante: nunca los copies)
+venv/
+.venv/
+env/
+ENV/
+bin/
+lib/
+share/
+
+# Archivos de Python y caché
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.pylint/
+.mypy_cache/
+
+# Variables de entorno y secretos (Seguridad)
+.env
+.env.local
+.env.development
+.env.production
+.secrets
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDEs y Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker (No necesitas el Dockerfile dentro de la imagen)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Archivos de sistema y logs
+*.log
+.DS_Store
+Thumbs.db

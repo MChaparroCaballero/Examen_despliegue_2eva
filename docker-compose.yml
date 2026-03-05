@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # Servicio de la Base de Datos (MariaDB)
+  db:
+    image: mariadb:10.11
+    container_name: ferreapp_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: FerreApp
+      MYSQL_USER: ferreappMaria
+      MYSQL_PASSWORD: ferreapp123
+    ports:
+      - "3307:3306" # Mapeamos al 3307 local para no chocar si ya tienes MySQL instalado
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./docs/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql # Para cargar tu SQL al iniciar el contenedor
+
+  # Servicio de tu API Python
+  api:
+    build: .
+    restart: always
+    container_name: ferreapp_api
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db  # Importante: coincide con el nombre del servicio de arriba
+      # Sobrescribimos el comando del Dockerfile para activar el reload en desarrollo
+      - DB_PORT=3306 # La API habla con la DB internamente por el 3306
+    command: >
+      sh -c "echo '--------------------------------------------' &&
+             echo '🚀 API LISTA EN: http://localhost:8000' &&
+             echo '--------------------------------------------' &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    volumes:
+      - .:/app # Opcional: sincroniza tu código para ver cambios en vivo sin reconstruir
+      - ./docs:/app/docs # Si tienes documentación o archivos estáticos
+      - .env:/app/.env # Para que la API pueda leer las variables de entorno
+
+volumes:
+  db_data:
