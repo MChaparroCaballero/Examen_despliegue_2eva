@@ -706,7 +706,7 @@ FerreApp/
 ├── 🐳 Dockerfile               # 🏗️ Receta para construir imagen de la API
 ├── 🐳 docker-compose.yml       # 🎼 Orquestador que levanta API + BD + Red
 ├── .env                         # 🔐 Variables de entorno (NO en Git)
-├── .env.example                 # 📋 Template de .env
+├── .env.back                # 📋 Template de .env
 ├── requirements.txt             # 📦 Dependencias Python
 └── README.md                    # 📖 Documentación
 ```
