@@ -15,9 +15,9 @@ services:
       - "3307:3306" # Mapeamos al 3307 local para no chocar si ya tienes MySQL instalado
     volumes:
       - db_data:/var/lib/mysql
-      - ./docs/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql # Para cargar tu SQL al iniciar el contenedor
+      - ./docs/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql # Para cargar SQL al iniciar el contenedor
 
-  # Servicio de tu API Python
+  # Servicio de la API Python
   api:
     build: .
     restart: always
@@ -38,8 +38,8 @@ services:
              echo '--------------------------------------------' &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
-      - .:/app # Opcional: sincroniza tu código para ver cambios en vivo sin reconstruir
-      - ./docs:/app/docs # Si tienes documentación o archivos estáticos
+      - .:/app # sincroniza el código para ver cambios en vivo sin reconstruir
+      - ./docs:/app/docs # Para la documentación o archivos estáticos
       - .env:/app/.env # Para que la API pueda leer las variables de entorno
 
 volumes:
