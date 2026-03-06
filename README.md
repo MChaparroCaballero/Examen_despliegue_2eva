@@ -10,11 +10,12 @@
 5. [Conceptos de Arquitectura de Software](#conceptos-de-arquitectura-de-software)
 6. [Librerías Python y su Función](#librerías-python-y-su-función)
 7. [Estructura del Proyecto](#estructura-del-proyecto)
-8. [Instalación y Ejecución](#instalación-y-ejecución)
-9. [Endpoints de la API](#endpoints-de-la-api)
-10. [Validaciones Implementadas](#validaciones-implementadas)
-11. [Patrones de Diseño Utilizados](#patrones-de-diseño-utilizados)
-12. [Ejercicios Prácticos para Estudiantes](#ejercicios-prácticos-para-estudiantes)
+8. [🐳 Docker y Containerización](#-docker-y-containerización)
+9. [Instalación y Ejecución](#instalación-y-ejecución)
+10. [Endpoints de la API](#endpoints-de-la-api)
+11. [Validaciones Implementadas](#validaciones-implementadas)
+12. [Patrones de Diseño Utilizados](#patrones-de-diseño-utilizados)
+13. [Ejercicios Prácticos para Estudiantes](#ejercicios-prácticos-para-estudiantes)
 
 ---
 
@@ -377,24 +378,181 @@ FerreApp/
 │   └── __pycache__/            
 │
 ├── docs/
-│   └── init_db.sql              # 📜 Script BD
+│   └── init_db.sql              # 📜 Script inicialización BD
 │
 ├── tests/
 │   ├── test_fetch_all_productos.py
 │   ├── test_insert_producto.py
-│   └── ...
+│   └── ...                      # 🧪 Tests unitarios
 │
-├── .env                         # 🔐 Configuración (NO en Git)
-├── requirements.txt             # 📦 Dependencias
+├── 🐳 Dockerfile               # 📦 Imagen de la aplicación
+├── 🐳 docker-compose.yml       # 🐳 Orquestación de contenedores
+├── .env                         # 🔐 Variables de entorno (NO en Git)
+├── .env.example                 # 📋 Template de .env
+├── requirements.txt             # 📦 Dependencias Python
 └── README.md                    # 📖 Documentación
 ```
 
 ---
 
-## 🚀 Instalación y Ejecución de la API
+## � Docker y Containerización
 
-### **Paso 1: Crear entorno virtual**
+### 📋 Descripción de archivos Docker
 
+#### **Dockerfile**
+Define cómo construir la imagen de la aplicación FastAPI:
+```dockerfile
+FROM python:3.11-slim           # Imagen base ligera
+WORKDIR /app                    # Directorio de trabajo
+COPY requirements.txt .         # Copiar dependencias
+RUN pip install -r requirements.txt  # Instalar paquetes
+COPY . .                        # Copiar código
+EXPOSE 8000                     # Expone puerto
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+**Ventajas:**
+- ✅ Aplicación aislada en contenedor
+- ✅ Reproducible en cualquier máquina
+- ✅ Sin dependencias del host
+
+#### **docker-compose.yml**
+Orquesta dos servicios (API + Base de Datos):
+
+```yaml
+version: '3.8'
+services:
+  db:              # Servicio MariaDB
+    image: mariadb:10.11
+    environment:
+      MYSQL_DATABASE: FerreApp
+      MYSQL_USER: ferreappMaria
+      MYSQL_PASSWORD: ferreapp123
+    volumes:
+      - db_data:/var/lib/mysql              # Persistencia
+      - ./docs/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    ports:
+      - "3307:3306"
+
+  api:             # Servicio API FastAPI
+    build: .       # Construye desde Dockerfile
+    depends_on:
+      - db         # Espera a que BD esté lista
+    environment:
+      - DB_HOST=db # Comunicación por nombre del servicio
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app     # Sincronización de código
+```
+
+**Arquitectura:**
+```
+┌────────────────────────────────────────┐
+│        Docker Network                  │
+│  ┌─────────────────────────────────┐   │
+│  │  Contenedor API (FastAPI)       │   │
+│  │  Puerto: 8000                   │   │
+│  │  Host: 0.0.0.0                 │   │
+│  └─────────────────────────────────┘   │
+│            ↓                            │
+│  ┌─────────────────────────────────┐   │
+│  │  Contenedor DB (MariaDB)        │   │
+│  │  Host: db (nombre del servicio) │   │
+│  │  Puerto: 3306 (interno)         │   │
+│  └─────────────────────────────────┘   │
+└────────────────────────────────────────┘
+
+Acceso desde Host:
+  - API: http://localhost:8000
+  - BD: localhost:3307
+```
+
+### 🎯 Requisitos para ejecución con Docker
+
+✅ **Docker Desktop** instalado (incluye Docker Engine + Docker Compose)
+- [Descargar Docker Desktop](https://www.docker.com/products/docker-desktop)
+- Verificar: `docker --version && docker-compose --version`
+
+---
+
+## 🚀 Instalación y Ejecución
+
+### ⭐ **OPCIÓN 1: CON DOCKER (RECOMENDADO PARA EXAMEN)** ⭐
+
+#### **Paso 1: Clonar el repositorio**
+```bash
+git clone <url-repositorio>
+cd practicaDockerExamen
+```
+
+#### **Paso 2: Levantar los contenedores**
+```bash
+# Construir imágenes e iniciar servicios
+docker-compose up --build
+```
+
+**¿Qué sucede?**
+1. ✅ Construye imagen de la API (desde Dockerfile)
+2. ✅ Descarga imagen de MariaDB
+3. ✅ Crea red Docker privada
+4. ✅ Inicia contenedor BD y ejecuta `init_db.sql`
+5. ✅ Inicia contenedor API (espera a que BD esté lista)
+6. ✅ API lista en http://localhost:8000
+
+**Salida esperada:**
+```
+ferreapp_db    | ... MySQL init process done
+ferreapp_api   | INFO:     Application startup complete
+ferreapp_api   | INFO:     Uvicorn running on http://0.0.0.0:8000
+```
+
+#### **Paso 3: Verificar que funciona**
+```bash
+# En otra terminal
+curl http://localhost:8000/productos
+```
+
+#### **Paso 4: Acceder a la documentación**
+```
+http://localhost:8000/docs
+```
+
+#### **Paso 5: Detener los contenedores**
+```bash
+# Ctrl+C en la terminal donde corre docker-compose, o en otra terminal:
+docker-compose down
+
+# Para detener y eliminar volúmenes (limpiar datos):
+docker-compose down -v
+```
+
+#### **Comandos útiles:**
+```bash
+# Ver logs de la API
+docker-compose logs -f api
+
+# Ver logs de la BD
+docker-compose logs -f db
+
+# Ver estado de contenedores
+docker-compose ps
+
+# Ejecutar comando en contenedor
+docker-compose exec api bash
+
+# Reconstruir sin caché
+docker-compose up --build --no-cache
+
+# Entrar a la BD desde contenedor
+docker-compose exec db mysql -uferreappMaria -pferreapp123 -DFerreApp
+```
+
+---
+
+### **OPCIÓN 2: SIN DOCKER (LOCAL)**
+
+#### **Paso 1: Crear entorno virtual**
 ```bash
 # Linux/Mac
 python3 -m venv venv
@@ -405,14 +563,12 @@ python -m venv venv
 venv\Scripts\activate
 ```
 
-### **Paso 2: Instalar dependencias**
-
+#### **Paso 2: Instalar dependencias**
 ```bash
 pip install -r requirements.txt
 ```
 
-### **Paso 3: Configurar .env**
-
+#### **Paso 3: Configurar .env**
 ```bash
 cat > .env << EOF
 DB_HOST=localhost
@@ -423,22 +579,33 @@ DB_PORT=3306
 EOF
 ```
 
-### **Paso 4: Crear base de datos**
-
+#### **Paso 4: Crear base de datos**
 ```bash
 mysql -u root -p < docs/init_db.sql
 ```
 
-### **Paso 5: Ejecutar la aplicación**
-
+#### **Paso 5: Ejecutar la aplicación**
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### **Acceder a la API:**
-
+#### **Acceder a la API:**
 - **Swagger UI:** http://localhost:8000/docs
-- **API:** http://localhost:8000/productos
+- **Productos:** http://localhost:8000/productos
+
+---
+
+## 📊 Comparativa de Opciones
+
+| Aspecto | Docker | Local |
+|--------|--------|-------|
+| **Facilidad** | ⭐⭐⭐ | ⭐⭐ |
+| **Consistencia** | ✅ Garantizada | ⚠️ Depende del host |
+| **Dependencias** | 📦 Aisladas en contenedor | 📦 Instaladas en host |
+| **Evaluación examen** | ✅ **RECOMENDADO** | ⚠️ Posibles problemas |
+| **BD aislada** | ✅ Sí | ⚠️ Necesita MySQL local |
+| **Limpieza** | ✅ `docker-compose down` | ⚠️ Manual |
+| **Escalabilidad** | ✅ Fácil | ❌ Difícil |
 
 ---
 
@@ -563,74 +730,12 @@ Agregar endpoint `GET /productos/categoria/{categoria}` para filtrar por categor
 
 ---
 
-**Última actualización:** 18 de enero de 2026
-**Versión:** 1.0.0
+**Última actualización:** 6 de marzo de 2026
+**Versión:** 2.0.0 - Dockerizado para Examen
 
-El archivo `database.py` implementa el patrón Repository, encapsulando toda la lógica de acceso a datos:
+---
 
-```python
-# Funciones que abstraen las operaciones de BD
-fetch_all_clientes()      # SELECT
-fetch_cliente_by_id()     # SELECT WHERE id
-insert_cliente()          # INSERT
-update_cliente()          # UPDATE
-delete_cliente()          # DELETE
-```
-
-**Beneficios:**
-- ✅ Centraliza el acceso a datos
-- ✅ Facilita el cambio de BD sin modificar la lógica de negocio
-- ✅ Mejora la testabilidad (se puede mockear fácilmente)
-
-### 3. **RESTful API Design**
-
-Sigue los principios REST:
-
-| Método HTTP | Endpoint                | Acción                    | Idempotente |
-|-------------|-------------------------|---------------------------|-------------|
-| GET         | `/clientes`             | Listar todos              | ✓           |
-| GET         | `/clientes/{id}`        | Obtener uno específico    | ✓           |
-| POST        | `/clientes`             | Crear nuevo               | ✗           |
-| PUT         | `/clientes/{id}`        | Actualizar completo       | ✓           |
-| DELETE      | `/clientes/{id}`        | Eliminar                  | ✓           |
-
-**Características REST:**
-- ✅ Recursos identificados por URIs
-- ✅ Uso semántico de métodos HTTP
-- ✅ Respuestas con códigos de estado apropiados (200, 201, 204, 404)
-- ✅ Stateless (sin estado en el servidor)
-
-### 4. **Validación de Datos (Data Validation)**
-
-Usa **Pydantic** para validación automática en dos niveles:
-
-**Nivel 1: Validaciones declarativas con `Field()`**
-```python
-nombre: str = Field(
-    min_length=2,
-    max_length=50,
-    description="..."
-)
-```
-
-**Nivel 2: Validaciones personalizadas con `@field_validator`**
-```python
-@field_validator('telefono')
-def validar_telefono(cls, v):
-    # Lógica personalizada
-    return v
-```
-
-### 5. **Separación de Modelos (Model Segregation)**
-
-```python
-ClienteBase       # Modelo base con validaciones comunes
-ClienteCreate     # Para crear (sin ID)
-ClienteUpdate     # Para actualizar (sin ID)
-Cliente           # Completo (con ID)
-```
-
-**Principio:** Interface Segregation Principle (ISP) del SOLID
+**¡Happy Coding! 🚀**
 - Cada endpoint usa solo los campos que necesita
 - Evita exposición accidental de datos
 
@@ -830,118 +935,14 @@ black app/main.py  # Formatea el archivo
 **¿Para qué sirve?**
 - Type hints modernos
 - Compatibilidad entre versiones de Python
-- Tipos avanzados
+---
+
+**Última actualización:** 6 de marzo de 2026
+**Versión:** 2.0.0 - Dockerizado para Examen
 
 ---
 
-## 📁 Estructura del Proyecto
-
-```
-clientes/
-├── app/
-│   ├── main.py              # 🎯 Endpoints de la API (FastAPI)
-│   ├── database.py          # 🗄️ Funciones CRUD (Repository Pattern)
-│   └── __pycache__/         # Cache de Python (auto-generado)
-│
-├── docs/
-│   ├── init_db.sql          # 📜 Script de inicialización de BD
-│   └── Diagrama de secuencia basico.drawio
-│
-├── docker-compose.yml       # 🐳 Orquestación de contenedores
-├── Dockerfile              # 🐳 Imagen de la aplicación
-├── requirements.txt        # 📦 Dependencias Python
-├── .env                    # 🔐 Variables de entorno (NO subir a Git)
-└── README.md              # 📖 Esta documentación
-```
-
-### Descripción de archivos clave:
-
-**`app/main.py`**
-- Define todos los endpoints de la API
-- Modelos Pydantic (ClienteBase, Cliente, etc.)
-- Lógica de validación personalizada
-- Configuración de FastAPI
-
-**`app/database.py`**
-- Funciones para conectarse a MySQL
-- Operaciones CRUD encapsuladas
-- Manejo de conexiones y cursores
-- Type hints para seguridad
-
-**`docker-compose.yml`**
-- Servicio `db`: MariaDB con datos iniciales
-- Servicio `app`: API FastAPI
-- Redes y volúmenes persistentes
-
-**`requirements.txt`**
-- Lista todas las dependencias Python
-- Versionado explícito para reproducibilidad
-
----
-
-## 🚀 Instalación y Ejecución
-
-### **Opción 1: Con Docker (Recomendado)**
-
-```bash
-# 1. Clonar el repositorio
-git clone <url-repositorio>
-cd clientes
-
-# 2. Crear archivo .env (si no existe)
-cat > .env << EOF
-DB_HOST=db
-DB_USER=profesor
-DB_PASSWORD=4688
-DB_NAME=clientes_db
-DB_PORT=3306
-EOF
-
-# 3. Levantar los servicios
-docker-compose up -d
-
-# 4. Verificar que esté funcionando
-curl http://localhost:8000/ping
-# Respuesta esperada: {"message":"pong"}
-
-# 5. Ver logs
-docker-compose logs -f app
-
-# 6. Detener los servicios
-docker-compose down
-```
-
-### **Opción 2: Sin Docker (Local)**
-
-```bash
-# 1. Crear entorno virtual
-python3 -m venv venv
-source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate   # Windows
-
-# 2. Instalar dependencias
-pip install -r requirements.txt
-
-# 3. Configurar .env para BD local
-cat > .env << EOF
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=tu_password
-DB_NAME=clientes_db
-DB_PORT=3306
-EOF
-
-# 4. Crear la base de datos
-mysql -u root -p < docs/init_db.sql
-
-# 5. Ejecutar la aplicación
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# 6. Acceder a la documentación
-# http://localhost:8000/docs
-```
-
-## 🔌 Endpoints de la API
+**¡Happy Coding! 🚀**
 
 ### **Base URL:** `http://localhost:8000`
 
@@ -954,23 +955,11 @@ GET /ping
 {"message": "pong"}
 ```
 
-### 2. Listar todos los clientes
+###  2. Listar todos los productos
 ```http
-GET /clientes
+GET /productos
 ```
-**Respuesta:** `200 OK`
-```json
-[
-  {
-    "id": 1,
-    "nombre": "Juan",
-    "apellido": "Pérez",
-    "email": "juan.perez@example.com",
-    "telefono": "+34612345678",
-    "direccion": "Calle Mayor 123, Madrid"
-  }
-]
-```
+**Respuesta:** `200 OK` - Lista de productos
 
 ### 3. Obtener un cliente por ID
 ```http
