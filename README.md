@@ -1,8 +1,189 @@
 # 📚 FerreApp API REST - Guía Educativa
-## API de Gestión de Productos de Ferretería
+## API de Gestión de Productos de Ferretería con dockerizacion
 ## Por María Chaparro Caballero
 [Enlace de perfil de github:](https://github.com/MChaparroCaballero)
-## 📖 Índice
+
+---
+
+## 🚀 Quick Start
+
+### 📋 Descripción del Proyecto
+
+**FerreApp** es una API REST desarrollada con **FastAPI** para gestionar un catálogo de productos de ferretería. El proyecto implementa una arquitectura de microservicios usando **Docker** y **Docker Compose**, con contenedores independientes para la aplicación y la base de datos MariaDB.
+
+**Tecnologías:** FastAPI, Python 3.11, MariaDB 10.11, Docker, Pydantic
+
+### ⚡ Cómo Ejecutar el Sistema
+
+#### **Requisitos:**
+- Docker Desktop instalado y en ejecución
+
+#### **Comando para levantar los contenedores:**
+
+```bash
+docker-compose up --build
+```
+
+#### **Acceso a la aplicación:**
+- **API REST:** http://localhost:8000
+- **Documentación Interactiva (Swagger):** http://localhost:8000/docs
+
+**¡Listo!** El sistema estará funcionando en menos de 60 segundos.
+
+---
+
+## � Cómo se Dockerizó el Proyecto
+
+### 📝 Archivos Necesarios para Dockerizar
+
+Para dockerizar FerreApp, se crearon **2 archivos clave**:
+
+#### **1. Dockerfile** - Construye la imagen de la aplicación
+
+```dockerfile
+# Imagen base de Python 3.11 (ligera)
+FROM python:3.11-slim
+
+# Establecer directorio de trabajo dentro del contenedor
+WORKDIR /app
+
+# Copiar archivo de dependencias
+COPY requirements.txt .
+
+# Instalar dependencias de Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar todo el código de la aplicación al contenedor
+COPY . .
+
+# Exponer el puerto 8000 para acceso externo
+EXPOSE 8000
+
+# Comando para ejecutar la aplicación con Uvicorn
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+**¿Qué hace cada línea?**
+- `FROM python:3.11-slim`: Usa una imagen base de Python optimizada
+- `WORKDIR /app`: Crea y se posiciona en el directorio `/app` dentro del contenedor
+- `COPY requirements.txt .`: Copia las dependencias al contenedor
+- `RUN pip install...`: Instala todas las librerías Python necesarias
+- `COPY . .`: Copia todo el código fuente al contenedor
+- `EXPOSE 8000`: Declara que el contenedor escucha en el puerto 8000
+- `CMD [...]`: Define el comando que ejecuta la API con Uvicorn
+
+#### **2. docker-compose.yml** - Orquesta múltiples contenedores
+
+```yaml
+version: '3.8'
+
+services:
+  # Servicio de Base de Datos
+  db:
+    image: mariadb:10.11
+    container_name: ferreapp_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: FerreApp
+      MYSQL_USER: ferreapp
+      MYSQL_PASSWORD: ferreapp123
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./docs/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
+    networks:
+      - ferreapp_network
+
+  # Servicio de la API
+  api:
+    build: .
+    container_name: ferreapp_api
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_USER: ferreapp
+      DB_PASSWORD: ferreapp123
+      DB_NAME: FerreApp
+      DB_PORT: 3306
+    ports:
+      - "8000:8000"
+    networks:
+      - ferreapp_network
+
+volumes:
+  db_data:
+
+networks:
+  ferreapp_network:
+    driver: bridge
+```
+
+**¿Qué hace cada sección?**
+
+- **`services.db`**: Contenedor de MariaDB
+  - Usa imagen oficial `mariadb:10.11`
+  - Define variables de entorno para crear BD y usuario
+  - `volumes`: Persiste datos en `db_data` y ejecuta `init_db.sql` al iniciar
+  - Publica puerto 3306 para acceso desde el host
+
+- **`services.api`**: Contenedor de FastAPI
+  - `build: .` → Construye imagen usando el Dockerfile del proyecto
+  - `depends_on: db` → Espera a que la BD esté lista antes de iniciar
+  - Variables de entorno apuntan al servicio `db` (no a localhost)
+  - Publica puerto 8000 para acceder a la API
+
+- **`volumes`**: Define almacenamiento persistente para la BD
+
+- **`networks`**: Crea red privada `ferreapp_network` donde los contenedores se comunican
+
+### 🔄 Proceso de Dockerización Paso a Paso
+
+**Paso 1: Crear el Dockerfile**
+```bash
+# Definir imagen base, copiar código, instalar dependencias
+```
+
+**Paso 2: Crear docker-compose.yml**
+```bash
+# Definir servicios (api + db), red, volúmenes
+```
+
+**Paso 3: Configurar variables de entorno**
+```bash
+# La API lee DB_HOST=db (nombre del servicio, no localhost)
+```
+
+**Paso 4: Construir y levantar contenedores**
+```bash
+docker-compose up --build
+```
+
+**¿Qué sucede al ejecutar `docker-compose up --build`?**
+
+1. 🏗️ **Docker Compose lee** el archivo `docker-compose.yml`
+2. 📦 **Construye la imagen** de la API usando el `Dockerfile`
+3. 🗄️ **Descarga la imagen** de MariaDB 10.11 desde Docker Hub
+4. 🌐 **Crea la red** `ferreapp_network`
+5. 💾 **Crea el volumen** `db_data` para persistencia
+6. 🚀 **Inicia el contenedor `db`** (MariaDB)
+   - Ejecuta `init_db.sql` para crear tablas
+7. 🚀 **Inicia el contenedor `api`** (FastAPI)
+   - Se conecta a `db` mediante la red Docker
+8. ✅ **Aplicación lista** en http://localhost:8000
+
+### 🎯 Ventajas de Esta Dockerización
+
+- ✅ **Portabilidad**: Funciona igual en Windows, Mac y Linux
+- ✅ **Aislamiento**: No contamina el sistema host
+- ✅ **Reproducibilidad**: Mismo entorno en desarrollo y producción
+- ✅ **Escalabilidad**: Fácil agregar más instancias
+- ✅ **Limpieza**: `docker-compose down` elimina todo
+
+---
+
+## �📖 Índice
 1. [Caso de Uso: Historia de Ferremax](#caso-de-uso-historia-de-ferremax)
 2. [El Problema a Resolver](#el-problema-a-resolver)
 3. [Especificación de Requisitos](#especificación-de-requisitos)
@@ -15,7 +196,134 @@
 10. [Endpoints de la API](#endpoints-de-la-api)
 11. [Validaciones Implementadas](#validaciones-implementadas)
 12. [Patrones de Diseño Utilizados](#patrones-de-diseño-utilizados)
-13. [Ejercicios Prácticos para Estudiantes](#ejercicios-prácticos-para-estudiantes)
+
+---
+## 📘 Introducción
+
+### 1. Contexto de la actividad
+
+En el entorno profesional actual, el despliegue de aplicaciones mediante contenedores se ha convertido en una práctica estándar en la industria del software. Tecnologías como Docker permiten empaquetar aplicaciones junto con sus dependencias, facilitando su distribución, escalabilidad y mantenimiento.
+
+En este examen se evaluará la capacidad del estudiante para desplegar una aplicación web utilizando contenedores Docker, configurando correctamente su arquitectura y asegurando la comunicación entre los distintos servicios.
+
+El objetivo es comprobar que el alumno comprende los principios básicos de contenedorización, orquestación simple con Docker Compose y conexión entre servicios dentro de una red Docker.
+
+### 🎯 Objetivo del examen
+
+El alumno deberá desplegar una aplicación web funcional utilizando Docker, siguiendo una arquitectura basada en múltiples contenedores.
+
+La aplicación puede ser desarrollada en cualquier lenguaje o framework web (por ejemplo: Node.js, Python, PHP, Java, etc.), siempre que cumpla con los requisitos técnicos definidos.
+
+### 🏗 Arquitectura obligatoria
+
+La solución deberá implementar una arquitectura mínima compuesta por tres elementos principales:
+
+**1️⃣ Contenedor de la aplicación web**
+
+- Debe contener el código de la aplicación.
+- Debe construirse mediante un Dockerfile.
+- Debe poder iniciarse correctamente dentro de un contenedor.
+
+**2️⃣ Contenedor de base de datos**
+
+- Debe utilizar MySQL como motor de base de datos.
+- Debe ejecutarse como un contenedor independiente.
+- La aplicación debe poder conectarse correctamente a esta base de datos.
+
+**3️⃣ Red Docker**
+
+- Debe existir una red Docker que permita la comunicación entre los contenedores.
+- La aplicación debe conectarse al contenedor de la base de datos mediante esta red.
+
+### 📦 Requisitos técnicos obligatorios
+
+El proyecto deberá incluir obligatoriamente:
+
+**1️⃣ Dockerfile**
+
+Debe existir un archivo Dockerfile que permita construir la imagen de la aplicación.
+
+El Dockerfile debe:
+
+- Definir una imagen base adecuada.
+- Copiar el código de la aplicación al contenedor.
+- Instalar las dependencias necesarias.
+- Definir el comando de ejecución de la aplicación.
+- Exponer el puerto necesario para acceder al servicio.
+
+**2️⃣ Docker Compose**
+
+El proyecto debe incluir un archivo `docker-compose.yml`
+
+Este archivo debe definir al menos los siguientes servicios:
+
+- `app` → contenedor de la aplicación
+- `db` → contenedor de MySQL
+
+Además, debe incluir:
+
+- Configuración de red
+- Variables de entorno necesarias
+- Persistencia de datos (si aplica)
+- Puertos publicados para acceso desde el host
+
+**3️⃣ Conexión a base de datos**
+
+La aplicación debe:
+
+- Conectarse correctamente al contenedor de MySQL.
+- Realizar al menos una operación sobre la base de datos, por ejemplo:
+  - insertar datos
+  - consultar datos
+  - listar registros
+
+No se evaluará la complejidad del sistema, sino la correcta integración entre aplicación y base de datos dentro del entorno Docker.
+
+### ⚙️ Requisitos funcionales
+
+La aplicación deberá cumplir lo siguiente:
+
+- Debe ejecutarse correctamente dentro del contenedor.
+- Debe ser accesible desde el navegador o desde un cliente HTTP.
+- Debe demostrar conexión funcional con la base de datos.
+- Debe ejecutarse correctamente mediante: `docker compose up`
+
+Al momento de la evaluación, el profesor deberá poder verificar que:
+
+- Los contenedores se crean correctamente
+- Los servicios están en ejecución
+- La aplicación responde correctamente
+
+### 📁 Entrega del proyecto
+
+El proyecto debe entregarse con la siguiente estructura mínima:
+
+```
+proyecto-docker/
+│
+├── docker-compose.yml
+├── Dockerfile
+├── app/
+│   └── código de la aplicación
+│
+└── README.md
+```
+
+El archivo README.md debe incluir:
+
+- descripción breve del proyecto
+- instrucciones para ejecutar el sistema
+- comando para levantar los contenedores
+
+### 🚫 Restricciones
+
+No se permite:
+
+- ejecutar la base de datos fuera de Docker
+- ejecutar la aplicación directamente en el host
+- utilizar bases de datos externas
+
+**Todos los servicios deben ejecutarse dentro de contenedores Docker.**
 
 ---
 
@@ -34,7 +342,7 @@ El dueño, Don Carlos, ha visto evolucionar el comercio desde los cuadernos manu
 
 ### El Punto de Inflexión
 
-El año 2024, durante una sesión de capacitación en tecnología para pymes, Don Carlos descubrió que una **API REST** podría revolucionar su negocio. Vio cómo otras ferrerías usaban sistemas digitales y se dio cuenta de que:
+El año 2024, durante una sesión de capacitación en tecnología para pymes, Don Carlos descubrió que una **API REST usando Docker** podría revolucionar su negocio. Vio cómo otras ferrerías usaban sistemas digitales modernos y contenedores que garantizaban el mismo funcionamiento en cualquier computadora, y se dio cuenta de que:
 
 1. **Pérdida de información:** No sabía con exactitud cuántas herramientas tenía en inventario
 2. **Ineficiencia:** Los clientes llamaban para preguntar disponibilidad y nadie podía responder rápido
@@ -199,6 +507,16 @@ Estos datos **DEBEN ser validados** cuando se creen o actualicen productos:
 - **Base de datos:** MariaDB/MySQL (relacional)
 - **Servidor ASGI:** Uvicorn (servidor asincrónico)
 - **Validación:** Pydantic (validación declarativa)
+
+### ☁️ Enfoque de Despliegue: Cloud Native
+
+A diferencia de una aplicación tradicional, **FerreApp está diseñada bajo el paradigma de "Cloud Native"**, lo que significa que su entorno natural es un contenedor. El objetivo central de este proyecto es demostrar la **orquestación de servicios (API + BD) mediante Docker**, garantizando que la aplicación funcione de forma **idéntica en el ordenador de Don Carlos, en el tuyo o en la nube**.
+
+Este enfoque moderno proporciona:
+- ✅ **Portabilidad:** Mismo comportamiento en desarrollo, testing y producción
+- ✅ **Escalabilidad:** Agregar más instancias es trivial
+- ✅ **Mantenibilidad:** Dependencias aisladas no afectan al host
+- ✅ **DevOps-ready:** Preparado para CI/CD y orquestadores como Kubernetes
 
 ---
 
@@ -385,8 +703,8 @@ FerreApp/
 │   ├── test_insert_producto.py
 │   └── ...                      # 🧪 Tests unitarios
 │
-├── 🐳 Dockerfile               # 📦 Imagen de la aplicación
-├── 🐳 docker-compose.yml       # 🐳 Orquestación de contenedores
+├── 🐳 Dockerfile               # 🏗️ Receta para construir imagen de la API
+├── 🐳 docker-compose.yml       # 🎼 Orquestador que levanta API + BD + Red
 ├── .env                         # 🔐 Variables de entorno (NO en Git)
 ├── .env.example                 # 📋 Template de .env
 ├── requirements.txt             # 📦 Dependencias Python
@@ -397,76 +715,47 @@ FerreApp/
 
 ## � Docker y Containerización
 
-### 📋 Descripción de archivos Docker
+### 🏗️ Arquitectura Obligatoria Implementada
 
-#### **Dockerfile**
-Define cómo construir la imagen de la aplicación FastAPI:
-```dockerfile
-FROM python:3.11-slim           # Imagen base ligera
-WORKDIR /app                    # Directorio de trabajo
-COPY requirements.txt .         # Copiar dependencias
-RUN pip install -r requirements.txt  # Instalar paquetes
-COPY . .                        # Copiar código
-EXPOSE 8000                     # Expone puerto
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
+Para cumplir con los estándares de la industria, la solución implementa una **arquitectura de microservicios mínima** compuesta por **tres pilares fundamentales**:
 
-**Ventajas:**
-- ✅ Aplicación aislada en contenedor
-- ✅ Reproducible en cualquier máquina
-- ✅ Sin dependencias del host
+#### **1️⃣ Contenedor de la Aplicación Web (FastAPI)**
 
-#### **docker-compose.yml**
-Orquesta dos servicios (API + Base de Datos):
+**Archivo:** `Dockerfile`
 
-```yaml
-version: '3.8'
-services:
-  db:              # Servicio MariaDB
-    image: mariadb:10.11
-    environment:
-      MYSQL_DATABASE: FerreApp
-      MYSQL_USER: ferreappMaria
-      MYSQL_PASSWORD: ferreapp123
-    volumes:
-      - db_data:/var/lib/mysql              # Persistencia
-      - ./docs/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
-    ports:
-      - "3307:3306"
+**Características:**
+- ✅ **Aislamiento:** El código y sus dependencias residen exclusivamente dentro del contenedor
+- ✅ **Variables de Entorno:** La API no tiene datos "hardcodeados"; lee la configuración de la BD desde el entorno de Docker
+- ✅ **Reproducibilidad:** Funciona idénticamente en cualquier máquina que tenga Docker instalado
+- ✅ **Host:** Escucha en `0.0.0.0` para ser accesible desde fuera del contenedor
 
-  api:             # Servicio API FastAPI
-    build: .       # Construye desde Dockerfile
-    depends_on:
-      - db         # Espera a que BD esté lista
-    environment:
-      - DB_HOST=db # Comunicación por nombre del servicio
-    ports:
-      - "8000:8000"
-    volumes:
-      - .:/app     # Sincronización de código
-```
+#### **2️⃣ Contenedor de Base de Datos (MariaDB/MySQL)**
 
-**Arquitectura:**
-```
-┌────────────────────────────────────────┐
-│        Docker Network                  │
-│  ┌─────────────────────────────────┐   │
-│  │  Contenedor API (FastAPI)       │   │
-│  │  Puerto: 8000                   │   │
-│  │  Host: 0.0.0.0                 │   │
-│  └─────────────────────────────────┘   │
-│            ↓                            │
-│  ┌─────────────────────────────────┐   │
-│  │  Contenedor DB (MariaDB)        │   │
-│  │  Host: db (nombre del servicio) │   │
-│  │  Puerto: 3306 (interno)         │   │
-│  └─────────────────────────────────┘   │
-└────────────────────────────────────────┘
+**Dentro de:** `docker-compose.yml` (servicio `db`)
 
-Acceso desde Host:
-  - API: http://localhost:8000
-  - BD: localhost:3307
-```
+**Características:**
+- ✅ **Independencia:** Se ejecuta como un servicio separado, permitiendo escalar la BD de forma independiente
+- ✅ **Persistencia:** Utiliza volúmenes de Docker (`db_data`) para asegurar que los datos NO se pierdan al apagar contenedores
+- ✅ **Inicialización:** El script `init_db.sql` se carga automáticamente al iniciar por primera vez
+- ✅ **Aislamiento de Red:** Solo la API puede conectarse mediante hostname `db`
+
+#### **3️⃣ Red Docker (Bridge Network)**
+
+**Creada automáticamente por:** `docker-compose.yml`
+
+**Características:**
+- ✅ **Comunicación Interna:** Los contenedores están unidos por una red privada virtual
+- ✅ **Resolución por Nombre:** La API se conecta a la BD usando hostname `db` (nombre del servicio), eliminando la dependencia de IPs variables
+- ✅ **Aislamiento:** La red Docker está aislada del host y otras aplicaciones
+- ✅ **DNS Automático:** Docker proporciona resolución de nombres entre servicios
+
+### 📋 Archivos Docker Clave
+
+#### **Dockerfile - La Receta de la Imagen**
+Define cómo construir la imagen de nuestra API de forma reproducible.
+
+#### **docker-compose.yml - El Director de Orquesta**
+El "director de orquesta" que levanta la API, la BD y crea la red que las une.
 
 ### 🎯 Requisitos para ejecución con Docker
 
@@ -476,81 +765,41 @@ Acceso desde Host:
 
 ---
 
-## 🚀 Instalación y Ejecución
+## 🚀 Instalación y Despliegue (Quick Start)
 
-### ⭐ **OPCIÓN 1: CON DOCKER (RECOMENDADO PARA EXAMEN)** ⭐
+### ⚡ El proyecto está optimizado para levantarse en menos de 60 segundos usando Docker
 
-#### **Paso 1: Clonar el repositorio**
+### 📋 Requisitos Previos
+
+✅ **Docker Desktop** instalado y en ejecución
+- [Descargar Docker Desktop](https://www.docker.com/products/docker-desktop)
+- Verificar: `docker --version && docker-compose --version`
+
+### 🎯 Pasos para el Despliegue
+
+#### **Paso 1: Clonar y entrar**
 ```bash
 git clone <url-repositorio>
 cd practicaDockerExamen
 ```
 
-#### **Paso 2: Levantar los contenedores**
+#### **Paso 2: Levantar la infraestructura**
 ```bash
-# Construir imágenes e iniciar servicios
 docker-compose up --build
 ```
 
-**¿Qué sucede?**
-1. ✅ Construye imagen de la API (desde Dockerfile)
-2. ✅ Descarga imagen de MariaDB
-3. ✅ Crea red Docker privada
-4. ✅ Inicia contenedor BD y ejecuta `init_db.sql`
-5. ✅ Inicia contenedor API (espera a que BD esté lista)
-6. ✅ API lista en http://localhost:8000
+**¡Listo!**
 
-**Salida esperada:**
-```
-ferreapp_db    | ... MySQL init process done
-ferreapp_api   | INFO:     Application startup complete
-ferreapp_api   | INFO:     Uvicorn running on http://0.0.0.0:8000
-```
-
-#### **Paso 3: Verificar que funciona**
-```bash
-# En otra terminal
-curl http://localhost:8000/productos
-```
-
-#### **Paso 4: Acceder a la documentación**
-```
-http://localhost:8000/docs
-```
-
-#### **Paso 5: Detener los contenedores**
-```bash
-# Ctrl+C en la terminal donde corre docker-compose, o en otra terminal:
-docker-compose down
-
-# Para detener y eliminar volúmenes (limpiar datos):
-docker-compose down -v
-```
-
-#### **Comandos útiles:**
-```bash
-# Ver logs de la API
-docker-compose logs -f api
-
-# Ver logs de la BD
-docker-compose logs -f db
-
-# Ver estado de contenedores
-docker-compose ps
-
-# Ejecutar comando en contenedor
-docker-compose exec api bash
-
-# Reconstruir sin caché
-docker-compose up --build --no-cache
-
-# Entrar a la BD desde contenedor
-docker-compose exec db mysql -uferreappMaria -pferreapp123 -DFerreApp
-```
+- **API:** http://localhost:8000
+- **Documentación Interactiva:** http://localhost:8000/docs
 
 ---
 
-### **OPCIÓN 2: SIN DOCKER (LOCAL)**
+### 🔧 Alternativa: Ejecución Local (Sin Docker)
+
+> ⚠️ Nota: No recomendado para examen. Usa Docker para garantizar consistencia.
+
+#### **Paso 1: Crear entorno virtual**
 
 #### **Paso 1: Crear entorno virtual**
 ```bash
@@ -568,7 +817,7 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-#### **Paso 3: Configurar .env**
+#### **Paso 2: Configurar .env**
 ```bash
 cat > .env << EOF
 DB_HOST=localhost
@@ -579,12 +828,12 @@ DB_PORT=3306
 EOF
 ```
 
-#### **Paso 4: Crear base de datos**
+#### **Paso 3: Crear base de datos**
 ```bash
 mysql -u root -p < docs/init_db.sql
 ```
 
-#### **Paso 5: Ejecutar la aplicación**
+#### **Paso 4: Ejecutar la aplicación**
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -694,554 +943,8 @@ Respuesta: `{"mensaje": "Producto eliminado exitosamente", "id_producto": 1}`
 
 ---
 
-## 🎓 Ejercicios Prácticos para Estudiantes
-
-### Ejercicio 1: Rastrear un GET end-to-end
-1. Ve a http://localhost:8000/docs
-2. Expande `GET /productos`
-3. Haz clic en "Try it out"
-4. Observa el response
-5. Sigue en `app/main.py` → `listar_productos()`
-6. Sigue en `app/database.py` → `fetch_all_productos()`
-
-### Ejercicio 2: Agregar validación personalizada
-Agregar validación para `codigo_sku` que no permita caracteres especiales:
-
-```python
-@field_validator('codigo_sku')
-def validar_codigo_sku_alfanumerico(cls, v: str) -> str:
-    import re
-    if not re.match(r'^[A-Z0-9\-]+$', v.upper()):
-        raise ValueError('Solo letras, números y guiones')
-    return v.upper()
-```
-
-### Ejercicio 3: Crear un test
-Crear `tests/test_crear_producto.py` y verificar inserción.
-
-### Ejercicio 4: Entender errores de validación
-1. Ve a Swagger UI
-2. POST con `precio: -5` (negativo)
-3. Observa error 422
-4. Entiende por qué falló (Field(ge=0))
-
-### Ejercicio 5: Ampliar funcionalidad
-Agregar endpoint `GET /productos/categoria/{categoria}` para filtrar por categoría.
-
----
-
-**Última actualización:** 6 de marzo de 2026
+**Última actualización:** 6 de marzo de 2026  
 **Versión:** 2.0.0 - Dockerizado para Examen
-
----
-
-**¡Happy Coding! 🚀**
-- Cada endpoint usa solo los campos que necesita
-- Evita exposición accidental de datos
-
-### 6. **Dependency Injection (Inyección de Dependencias)**
-
-FastAPI inyecta automáticamente dependencias:
-```python
-def crear_cliente(cliente: ClienteCreate):  # ← FastAPI inyecta y valida
-```
-
-### 7. **Documentación Automática (API Documentation)**
-
-FastAPI genera automáticamente:
-- **Swagger UI:** `/docs` - Interfaz interactiva
-- **ReDoc:** `/redoc` - Documentación alternativa
-- **OpenAPI Schema:** `/openapi.json` - Especificación estándar
-
-### 8. **Contenedorización (Containerization)**
-
-Uso de Docker para:
-- ✅ Consistencia entre entornos (desarrollo, producción)
-- ✅ Aislamiento de dependencias
-- ✅ Orquestación con Docker Compose (app + base de datos)
-
-### 9. **Configuración Externa (Externalized Configuration)**
-
-Uso de `.env` para configuración:
-```python
-DB_HOST=localhost
-DB_USER=profesor
-DB_PASSWORD=4688
-```
-
-**Principio:** 12-Factor App - Configuration
-- ✅ No hardcodear credenciales
-- ✅ Fácil cambio entre entornos
-
-### 10. **Manejo de Errores HTTP (Error Handling)**
-
-```python
-if not cliente:
-    raise HTTPException(status_code=404, detail="Cliente no encontrado")
-```
-
-Respuestas estándar y descriptivas para el cliente.
-
----
-
-## 📦 Librerías Python y su Función
-
-### **Librerías Core de la API**
-
-#### 1. **FastAPI** (`fastapi==0.121.0`)
-**¿Qué es?** Framework web moderno y de alto rendimiento para crear APIs.
-
-**¿Para qué sirve en la API?**
-- Define los endpoints (rutas)
-- Maneja requests/responses HTTP
-- Genera documentación automática
-- Inyección de dependencias
-- Manejo de errores HTTP
-
-```python
-app = FastAPI()  # Crea la aplicación
-
-@app.get("/clientes")  # Define un endpoint
-def listar_clientes():
-    pass
-```
-
-#### 2. **Pydantic** (`pydantic==2.12.4`)
-**¿Qué es?** Librería para validación de datos usando type hints de Python.
-
-**¿Para qué sirve en la API?**
-- Validación automática de datos de entrada
-- Serialización JSON ↔ Python objects
-- Generación de schema OpenAPI
-- Type safety (seguridad de tipos)
-
-```python
-class Cliente(BaseModel):  # Modelo con validación automática
-    nombre: str
-    email: EmailStr  # Valida formato de email
-```
-
-#### 3. **Uvicorn** (`uvicorn==0.38.0`)
-**¿Qué es?** Servidor ASGI ultrarrápido para aplicaciones asíncronas.
-
-**¿Para qué sirve en la API?**
-- Ejecuta la aplicación FastAPI
-- Maneja conexiones HTTP
-- Soporte para async/await
-- Hot reload en desarrollo
-
-```bash
-uvicorn app.main:app --reload
-```
-
-#### 4. **mysql-connector-python** (`mysql-connector-python==9.5.0`)
-**¿Qué es?** Driver oficial de Oracle para conectarse a MySQL/MariaDB.
-
-**¿Para qué sirve en la API?**
-- Conexión a la base de datos
-- Ejecución de queries SQL
-- Manejo de transacciones
-- Cursor para resultados
-
-```python
-conn = mysql.connector.connect(
-    host="localhost",
-    user="profesor",
-    password="4688"
-)
-```
-
-#### 5. **python-dotenv** (`python-dotenv==1.2.1`)
-**¿Qué es?** Carga variables de entorno desde archivos `.env`.
-
-**¿Para qué sirve en la API?**
-- Gestión de configuración
-- Separar secrets del código
-- Diferentes configs por entorno
-
-```python
-from dotenv import load_dotenv
-load_dotenv()  # Carga .env
-
-DB_HOST = os.getenv("DB_HOST")
-```
-
-### **Librerías de Validación**
-
-#### 6. **email-validator** (`email-validator==2.1.0`)
-**¿Qué es?** Validador robusto de direcciones de email.
-
-**¿Para qué sirve en la API?**
-- Valida formato de emails
-- Verifica sintaxis RFC 5322
-- Detecta emails inválidos
-
-```python
-email: EmailStr  # Usa email-validator internamente
-```
-
-#### 7. **dnspython** (`dnspython==2.8.0`)
-**¿Qué es?** Toolkit para consultas DNS.
-
-**¿Para qué sirve en la API?**
-- Dependencia de email-validator
-- Verifica existencia de dominios de email
-- Validación avanzada de emails
-
-### **Librerías de Desarrollo**
-
-#### 8. **Black** (`black==25.9.0`)
-**¿Qué es?** Formateador de código Python automático.
-
-**¿Para qué sirve?**
-- Mantiene estilo de código consistente
-- Formatea automáticamente
-- Evita discusiones sobre estilo
-
-```bash
-black app/main.py  # Formatea el archivo
-```
-
-#### 9. **python-multipart** (`python-multipart==0.0.20`)
-**¿Qué es?** Parser para datos multipart/form-data.
-
-**¿Para qué sirve en la API?**
-- Manejo de formularios HTML
-- Upload de archivos
-- Datos form-encoded
-
-### **Librerías de Soporte**
-
-#### 10. **Starlette** (`starlette==0.49.3`)
-**¿Qué es?** Framework ASGI ligero (FastAPI está construido sobre Starlette).
-
-**¿Para qué sirve?**
-- Base de FastAPI
-- Routing
-- Middleware
-- WebSockets
-
-#### 11. **anyio** (`anyio==4.11.0`)
-**¿Qué es?** Capa de abstracción para async I/O.
-
-**¿Para qué sirve?**
-- Compatibilidad asyncio/trio
-- Operaciones asíncronas
-- Concurrencia
-
-#### 12. **typing_extensions** (`typing-extensions==4.15.0`)
-**¿Qué es?** Backport de nuevas características de typing.
-
-**¿Para qué sirve?**
-- Type hints modernos
-- Compatibilidad entre versiones de Python
----
-
-**Última actualización:** 6 de marzo de 2026
-**Versión:** 2.0.0 - Dockerizado para Examen
-
----
-
-**¡Happy Coding! 🚀**
-
-### **Base URL:** `http://localhost:8000`
-
-### 1. Health Check
-```http
-GET /ping
-```
-**Respuesta:**
-```json
-{"message": "pong"}
-```
-
-###  2. Listar todos los productos
-```http
-GET /productos
-```
-**Respuesta:** `200 OK` - Lista de productos
-
-### 3. Obtener un cliente por ID
-```http
-GET /clientes/{id}
-```
-**Ejemplo:** `GET /clientes/1`
-
-**Respuesta exitosa:** `200 OK`
-```json
-{
-  "id": 1,
-  "nombre": "Juan",
-  "apellido": "Pérez",
-  "email": "juan.perez@example.com",
-  "telefono": "+34612345678",
-  "direccion": "Calle Mayor 123, Madrid"
-}
-```
-
-**Respuesta error:** `404 Not Found`
-```json
-{
-  "detail": "Cliente no encontrado"
-}
-```
-
-### 4. Crear un nuevo cliente
-```http
-POST /clientes
-Content-Type: application/json
-```
-**Body:**
-```json
-{
-  "nombre": "María",
-  "apellido": "García",
-  "email": "maria.garcia@example.com",
-  "telefono": "612345678",
-  "direccion": "Av. Principal 45, Barcelona"
-}
-```
-
-**Respuesta:** `201 Created`
-```json
-{
-  "id": 2,
-  "nombre": "María",
-  "apellido": "García",
-  "email": "maria.garcia@example.com",
-  "telefono": "612345678",
-  "direccion": "Av. Principal 45, Barcelona"
-}
-```
-
-### 5. Actualizar un cliente
-```http
-PUT /clientes/{id}
-Content-Type: application/json
-```
-**Body:**
-```json
-{
-  "nombre": "María José",
-  "apellido": "García López",
-  "email": "mariajose.garcia@example.com",
-  "telefono": "+34612345678",
-  "direccion": "Av. Principal 45, 2º A, Barcelona"
-}
-```
-
-**Respuesta:** `200 OK`
-
-### 6. Eliminar un cliente
-```http
-DELETE /clientes/{id}
-```
-
-**Respuesta exitosa:** `204 No Content` (sin cuerpo)
-
-**Respuesta error:** `404 Not Found`
-
----
-
-## ✅ Validaciones Implementadas
-
-### **Campo: nombre y apellido**
-
-| Validación              | Descripción                                    |
-|-------------------------|------------------------------------------------|
-| Requerido               | No puede ser vacío                             |
-| Longitud mínima         | 2 caracteres                                   |
-| Longitud máxima         | 50 caracteres                                  |
-| Caracteres permitidos   | Solo letras, espacios, tildes (á, é, í, ó, ú), ñ |
-| Transformación          | Capitaliza cada palabra (Title Case)           |
-
-**Ejemplos válidos:** `"Juan"`, `"María José"`, `"García López"`
-**Ejemplos inválidos:** `"J"` (muy corto), `"Juan123"` (números), `""` (vacío)
-
-### **Campo: email**
-
-| Validación              | Descripción                                    |
-|-------------------------|------------------------------------------------|
-| Requerido               | Sí                                             |
-| Formato                 | Debe ser un email válido (RFC 5322)            |
-| Validación DNS          | Verifica existencia del dominio                |
-
-**Ejemplos válidos:** `"juan@example.com"`, `"maria.garcia@empresa.es"`
-**Ejemplos inválidos:** `"noesuncorreo"`, `"@example.com"`, `"usuario@"`
-
-### **Campo: telefono** (opcional)
-
-| Validación              | Descripción                                    |
-|-------------------------|------------------------------------------------|
-| Requerido               | No (opcional)                                  |
-| Longitud                | 7-15 dígitos                                   |
-| Formato                 | Puede incluir `+` al inicio                    |
-| Caracteres ignorados    | Espacios, guiones, paréntesis (se eliminan para validar) |
-
-**Ejemplos válidos:** `"+34612345678"`, `"612345678"`, `"91 234 56 78"`, `"(91) 234-5678"`
-**Ejemplos inválidos:** `"123"` (muy corto), `"abc123"` (letras), `"123456789012345678"` (muy largo)
-
-### **Campo: direccion** (opcional)
-
-| Validación              | Descripción                                    |
-|-------------------------|------------------------------------------------|
-| Requerido               | No (opcional)                                  |
-| Longitud máxima         | 200 caracteres                                 |
-
-**Ejemplo válido:** `"Calle Mayor 123, 28013 Madrid, España"`
-
----
-
-## 🧪 Ejercicios Prácticos
-
-### **Ejercicio 1: Testing con Swagger UI**
-1. Accede a `http://localhost:8000/docs`
-2. Crea 3 clientes con datos válidos
-3. Intenta crear un cliente con email inválido
-4. Intenta crear un cliente con nombre de 1 letra
-5. Lista todos los clientes
-6. Actualiza un cliente
-7. Elimina un cliente
-
-### **Ejercicio 2: Testing con curl**
-```bash
-# Crear cliente
-curl -X POST http://localhost:8000/clientes \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nombre": "Pedro",
-    "apellido": "Martínez",
-    "email": "pedro@example.com",
-    "telefono": "666777888"
-  }'
-
-# Listar clientes
-curl http://localhost:8000/clientes
-
-# Obtener cliente por ID
-curl http://localhost:8000/clientes/1
-
-# Actualizar cliente
-curl -X PUT http://localhost:8000/clientes/1 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nombre": "Pedro José",
-    "apellido": "Martínez Ruiz",
-    "email": "pedro.martinez@example.com",
-    "telefono": "+34666777888",
-    "direccion": "Nueva dirección"
-  }'
-
-# Eliminar cliente
-curl -X DELETE http://localhost:8000/clientes/1
-```
-
-### **Ejercicio 3: Modificar el Proyecto**
-
-**A) Agregar nuevo campo:**
-1. Agrega el campo `edad: int` al modelo
-2. Valida que sea entre 18 y 120 años
-3. Actualiza la tabla en `init_db.sql`
-4. Prueba los endpoints
-
-**B) Agregar nuevo endpoint:**
-1. Crea `GET /clientes/buscar?email=xxx@example.com`
-2. Implementa la función en `database.py`
-3. Documenta el endpoint
-
-**C) Paginación:**
-1. Modifica `GET /clientes` para aceptar `?skip=0&limit=10`
-2. Implementa la lógica de paginación
-3. Prueba con muchos registros
-
-### **Ejercicio 4: Análisis de Código**
-
-**Preguntas:**
-1. ¿Qué pasa si la base de datos no está disponible?
-2. ¿Cómo podrías agregar autenticación JWT?
-3. ¿Qué patrón de diseño usarías para logging?
-4. ¿Cómo implementarías un caché de clientes?
-5. ¿Qué ventajas tiene usar `async def` en los endpoints?
-
-### **Ejercicio 5: Testing Unitario**
-
-Crea un archivo `test_main.py`:
-
-```python
-from fastapi.testclient import TestClient
-from app.main import app
-
-client = TestClient(app)
-
-def test_ping():
-    response = client.get("/ping")
-    assert response.status_code == 200
-    assert response.json() == {"message": "pong"}
-
-def test_crear_cliente_valido():
-    response = client.post("/clientes", json={
-        "nombre": "Test",
-        "apellido": "Usuario",
-        "email": "test@example.com"
-    })
-    assert response.status_code == 201
-    assert response.json()["nombre"] == "Test"
-
-def test_crear_cliente_email_invalido():
-    response = client.post("/clientes", json={
-        "nombre": "Test",
-        "apellido": "Usuario",
-        "email": "email-invalido"
-    })
-    assert response.status_code == 422  # Unprocessable Entity
-```
-
-Ejecuta: `pytest test_main.py -v`
-
----
-
-## 📚 Recursos Adicionales
-
-### **Documentación Oficial:**
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [Pydantic](https://docs.pydantic.dev/)
-- [MySQL Connector](https://dev.mysql.com/doc/connector-python/en/)
-- [Docker](https://docs.docker.com/)
-
-### **Conceptos de Arquitectura:**
-- [REST API Best Practices](https://restfulapi.net/)
-- [SOLID Principles](https://en.wikipedia.org/wiki/SOLID)
-- [Repository Pattern](https://martinfowler.com/eaaCatalog/repository.html)
-- [12-Factor App](https://12factor.net/)
-
-### **Herramientas Útiles:**
-- **Postman:** Cliente para probar APIs
-- **HTTPie:** Cliente CLI moderno (`pip install httpie`)
-- **DBeaver:** Cliente visual para bases de datos
-
----
-
-## 🤝 Contribuciones
-
-Este es un proyecto educativo. Se anima a los estudiantes a:
-1. Hacer fork del proyecto
-2. Experimentar con nuevas features
-3. Compartir mejoras con la clase
-4. Documentar los cambios realizados
-
----
-
-## 📝 Licencia
-
-Proyecto educativo para uso académico.
-
----
-
-## ✉️ Contacto
-
-**Profesor:** [Tu nombre]
-**Email:** [tu-email@universidad.edu]
-**Curso:** Desarrollo de APIs REST con Python
 
 ---
 
