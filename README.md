@@ -156,9 +156,18 @@ networks:
 ```
 
 **Paso 4: Construir y levantar contenedores**
+
+**Primera vez** (construye las imágenes desde cero):
 ```bash
 docker-compose up --build
 ```
+
+**Ejecuciones siguientes** (usa las imágenes ya construidas):
+```bash
+docker-compose up
+```
+
+> 💡 **Nota:** Usa `--build` solo cuando hagas cambios en el código o en el Dockerfile. Para inicios normales, `docker-compose up` es más rápido.
 
 **¿Qué sucede al ejecutar `docker-compose up --build`?**
 
